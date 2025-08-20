@@ -1,3 +1,5 @@
 python-telegram-bot[webhooks]==20.3
-asyncpg
+psycopg[binary]==3.2.9
+asyncpg==0.30.0
 httpx~=0.24.0
+tornado~=6.5
