@@ -5,7 +5,7 @@ from telegram.ext import Application, CommandHandler, MessageHandler, filters, C
 
 # ======= تنظیمات =======
 TOKEN = "7981388986:AAE3xI26bTu7WJjTa9vx_svYrfVHbqBE4RU"  # مستقیم توکن بذار
-DATABASE_URL = "postgres://levelup_db_t2xo_user:pJjyeD82D0Mu3mCF1iQ2ZBgbU5UeE5rt@dpg-d2io8i3e5dus73b86sbg-a:5432/levelup_db_t2xo"  # لینک دیتابیس تو Render
+DATABASE_URL = "postgresql://alireza_sbi0_user:vWClPVxY8onlO2f8OkwXFauKWyAHitYw@dpg-d2ipq23e5dus73b9gg7g-a.oregon-postgres.render.com/alireza_sbi0"  # لینک دیتابیس تو Render
 
 if not TOKEN or not DATABASE_URL:
     raise ValueError("توکن یا دیتابیس وارد نشده!")
@@ -90,3 +90,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
