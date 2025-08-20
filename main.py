@@ -1,17 +1,19 @@
 import logging
-import psycopg2
-from psycopg2.extras import DictCursor
+import psycopg
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
-import os
 
-# ======= تنظیمات (از محیط بگیر تا امن باشه) =======
-TOKEN = os.getenv("7981388986:AAE3xI26bTu7WJjTa9vx_svYrfVHbqBE4RU")  # توکن بات → تو Render تو Environment بزاری
-DATABASE_URL = os.getenv("postgres://levelup_db_t2xo_user:pJjyeD82D0Mu3mCF1iQ2ZBgbU5UeE5rt@dpg-d2io8i3e5dus73b86sbg-a:5432/levelup_db_t2xo")  # لینک دیتابیس → از Render می‌گیری
+# ======= تنظیمات =======
+TOKEN = "7981388986:AAE3xI26bTu7WJjTa9vx_svYrfVHbqBE4RU"  # مستقیم توکن بذار
+DATABASE_URL = "postgres://levelup_db_t2xo_user:pJjyeD82D0Mu3mCF1iQ2ZBgbU5UeE5rt@dpg-d2io8i3e5dus73b86sbg-a:5432/levelup_db_t2xo"  # لینک دیتابیس تو Render
+
+if not TOKEN or not DATABASE_URL:
+    raise ValueError("توکن یا دیتابیس وارد نشده!")
 
 # ======= اتصال دیتابیس =======
-conn = psycopg2.connect(DATABASE_URL, sslmode="require", cursor_factory=DictCursor)
+conn = psycopg.connect(DATABASE_URL, sslmode="require")
 cur = conn.cursor()
+
 cur.execute("""
 CREATE TABLE IF NOT EXISTS users (
     user_id BIGINT,
@@ -39,7 +41,7 @@ async def increase_level(update: Update, context: ContextTypes.DEFAULT_TYPE):
     VALUES (%s, %s, %s, 1)
     ON CONFLICT (user_id, chat_id) DO UPDATE
     SET level = users.level + 1, username = EXCLUDED.username
-    """, (user.id, chat_id, user.username or "ناشناس"))
+    """, (user.id, chat_id, user.username))
     conn.commit()
 
 async def leaderboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -53,7 +55,7 @@ async def leaderboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     text = "🏆 لیدربرد گروه:\n\n"
     for i, row in enumerate(rows, start=1):
-        text += f"{i}. @{row['username']} → لول {row['level']}\n"
+        text += f"{i}. @{row[0]} → لول {row[1]}\n"
     await update.message.reply_text(text)
 
 async def global_leaderboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -66,7 +68,7 @@ async def global_leaderboard(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
     text = "🌍 لیدربرد جهانی:\n\n"
     for i, row in enumerate(rows, start=1):
-        text += f"{i}. @{row['username']} → لول {row['total']}\n"
+        text += f"{i}. @{row[0]} → لول {row[1]}\n"
     await update.message.reply_text(text)
 
 # ======= ران اصلی =======
