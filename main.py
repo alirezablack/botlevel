@@ -11,7 +11,7 @@ DATABASE_URL = "postgresql://alireza_sbi0_user:vWClPVxY8onlO2f8OkwXFauKWyAHitYw@
 conn = psycopg.connect(DATABASE_URL, sslmode="require")
 cur = conn.cursor()
 
-# --- ایجاد جدول‌ها اگر وجود نداشت ---
+# --- ایجاد جدول‌ها ---
 cur.execute("""
 CREATE TABLE IF NOT EXISTS users (
     user_id BIGINT,
@@ -64,19 +64,26 @@ async def global_leaderboard(update: Update, context: ContextTypes.DEFAULT_TYPE)
     else:
         await update.message.reply_text("هیچ داده‌ای جهانی موجود نیست.")
 
-# --- دستور تست XP (مثلا برای ارسال پیام) ---
+# --- دستور تست XP ---
 async def addxp_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     chat_id = update.effective_chat.id
     await add_xp(user_id, chat_id, 10)
     await update.message.reply_text("✅ شما ۱۰ XP گرفتید!")
 
-# --- اجرای بات ---
+# --- اجرای بات با Webhook ---
+PORT = int(os.environ.get("PORT", "8443"))  # پورت برای Render
+URL = f"https://botlevel.onrender.com/{TOKEN}"  # اینو با لینک سرویس Renderت عوض کن
+
 app = ApplicationBuilder().token(TOKEN).build()
 app.add_handler(CommandHandler("group_leaderboard", group_leaderboard))
 app.add_handler(CommandHandler("global_leaderboard", global_leaderboard))
 app.add_handler(CommandHandler("addxp", addxp_command))
 
 print("Bot is running...")
-app.run_polling()
 
+app.run_webhook(
+    listen="0.0.0.0",
+    port=PORT,
+    webhook_url=URL
+)
