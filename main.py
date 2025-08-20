@@ -1,16 +1,19 @@
+import asyncio
 import psycopg
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 
-# --- توکن و دیتابیس ---
+# --- توکن و URL ---
 TOKEN = "8397328636:AAEJFNymHkjykxQh_H8FsgTgm58CjrYc9Ig"
-DATABASE_URL = "postgresql://alireza_sbi0_user:vWClPVxY8onlO2f8OkwXFauKWyAHitYw@dpg-d2ipq23e5dus73b9gg7g-a.oregon-postgres.render.com/alireza_sbi0"
+URL = f"https://botlevel.onrender.com/{TOKEN}"
+PORT = 10000  # می‌تونی هر پورتی که Render بهت داد بذاری، معمولا 10000 خوبه
 
-# --- اتصال به دیتابیس ---
+# --- دیتابیس ---
+DATABASE_URL = "postgresql://alireza_sbi0_user:vWClPVxY8onlO2f8OkwXFauKWyAHitYw@dpg-d2ipq23e5dus73b9gg7g-a.oregon-postgres.render.com/alireza_sbi0"
 conn = psycopg.connect(DATABASE_URL, sslmode="require")
 cur = conn.cursor()
 
-# --- ایجاد جدول‌ها اگر وجود نداشت ---
+# --- ایجاد جدول‌ها ---
 cur.execute("""
 CREATE TABLE IF NOT EXISTS users (
     user_id BIGINT,
@@ -70,13 +73,21 @@ async def addxp_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await add_xp(user_id, chat_id, 10)
     await update.message.reply_text("✅ شما ۱۰ XP گرفتید!")
 
-# --- اجرای بات ---
-app = ApplicationBuilder().token(TOKEN).build()
-app.add_handler(CommandHandler("group_leaderboard", group_leaderboard))
-app.add_handler(CommandHandler("global_leaderboard", global_leaderboard))
-app.add_handler(CommandHandler("addxp", addxp_command))
+# --- اجرای بات با Webhook ---
+async def main():
+    app = ApplicationBuilder().token(TOKEN).build()
+    app.add_handler(CommandHandler("group_leaderboard", group_leaderboard))
+    app.add_handler(CommandHandler("global_leaderboard", global_leaderboard))
+    app.add_handler(CommandHandler("addxp", addxp_command))
 
-print("Bot is running...")
+    print("Bot is running...")
 
-# --- Polling امن برای Render ---
-app.run_polling()
+    # Webhook برای Render
+    await app.run_webhook(
+        listen="0.0.0.0",
+        port=PORT,
+        webhook_url=URL
+    )
+
+# --- شروع ---
+asyncio.run(main())
