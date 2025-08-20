@@ -4,7 +4,7 @@ from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 
 # --- توکن و دیتابیس ---
-TOKEN = "7981388986:AAE3xI26bTu7WJjTa9vx_svYrfVHbqBE4RU"
+TOKEN = "8397328636:AAEJFNymHkjykxQh_H8FsgTgm58CjrYc9Ig"
 DATABASE_URL = "postgresql://alireza_sbi0_user:vWClPVxY8onlO2f8OkwXFauKWyAHitYw@dpg-d2ipq23e5dus73b9gg7g-a.oregon-postgres.render.com/alireza_sbi0"
 
 # --- اتصال به دیتابیس ---
@@ -79,3 +79,4 @@ app.add_handler(CommandHandler("addxp", addxp_command))
 
 print("Bot is running...")
 app.run_polling()
+
