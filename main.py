@@ -1,93 +1,81 @@
-import logging
+import os
 import psycopg
 from telegram import Update
-from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
+from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 
-# ======= تنظیمات =======
-TOKEN = "7981388986:AAE3xI26bTu7WJjTa9vx_svYrfVHbqBE4RU"  # مستقیم توکن بذار
-DATABASE_URL = "postgresql://alireza_sbi0_user:vWClPVxY8onlO2f8OkwXFauKWyAHitYw@dpg-d2ipq23e5dus73b9gg7g-a.oregon-postgres.render.com/alireza_sbi0"  # لینک دیتابیس تو Render
+# --- توکن و دیتابیس ---
+TOKEN = "7981388986:AAE3xI26bTu7WJjTa9vx_svYrfVHbqBE4RU"
+DATABASE_URL = "postgresql://alireza_sbi0_user:vWClPVxY8onlO2f8OkwXFauKWyAHitYw@dpg-d2ipq23e5dus73b9gg7g-a.oregon-postgres.render.com/alireza_sbi0"
 
-if not TOKEN or not DATABASE_URL:
-    raise ValueError("توکن یا دیتابیس وارد نشده!")
-
-# ======= اتصال دیتابیس =======
+# --- اتصال به دیتابیس ---
 conn = psycopg.connect(DATABASE_URL, sslmode="require")
 cur = conn.cursor()
 
+# --- ایجاد جدول‌ها اگر وجود نداشت ---
 cur.execute("""
 CREATE TABLE IF NOT EXISTS users (
     user_id BIGINT,
-    chat_id BIGINT,
-    username TEXT,
-    level INT DEFAULT 0,
-    PRIMARY KEY (user_id, chat_id)
-)
+    group_id BIGINT,
+    xp INTEGER DEFAULT 0,
+    level INTEGER DEFAULT 1,
+    PRIMARY KEY(user_id, group_id)
+);
 """)
 conn.commit()
 
-# ======= تنظیم لاگ =======
-logging.basicConfig(level=logging.INFO)
-
-# ======= فانکشن‌ها =======
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("سلام! من روشنم 😊")
-
-async def increase_level(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user = update.message.from_user
-    chat_id = update.message.chat_id
-
-    cur.execute("""
-    INSERT INTO users (user_id, chat_id, username, level)
-    VALUES (%s, %s, %s, 1)
-    ON CONFLICT (user_id, chat_id) DO UPDATE
-    SET level = users.level + 1, username = EXCLUDED.username
-    """, (user.id, chat_id, user.username))
+# --- فانکشن افزایش XP ---
+async def add_xp(user_id: int, group_id: int, xp: int):
+    cur.execute("SELECT xp, level FROM users WHERE user_id=%s AND group_id=%s", (user_id, group_id))
+    row = cur.fetchone()
+    if row:
+        new_xp = row[0] + xp
+        new_level = row[1]
+        if new_xp >= new_level * 100:
+            new_level += 1
+        cur.execute("UPDATE users SET xp=%s, level=%s WHERE user_id=%s AND group_id=%s",
+                    (new_xp, new_level, user_id, group_id))
+    else:
+        cur.execute("INSERT INTO users(user_id, group_id, xp, level) VALUES(%s, %s, %s, %s)",
+                    (user_id, group_id, xp, 1))
     conn.commit()
 
-async def leaderboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    chat_id = update.message.chat_id
-    cur.execute("SELECT username, level FROM users WHERE chat_id=%s ORDER BY level DESC LIMIT 10", (chat_id,))
+# --- دستور لیدربرد گروه ---
+async def group_leaderboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id = update.effective_chat.id
+    cur.execute("SELECT user_id, xp, level FROM users WHERE group_id=%s ORDER BY xp DESC LIMIT 10", (chat_id,))
     rows = cur.fetchall()
+    if rows:
+        msg = "🏆 لیدربرد گروه:\n"
+        for i, row in enumerate(rows, start=1):
+            msg += f"{i}. کاربر {row[0]} - سطح {row[2]} - XP {row[1]}\n"
+        await update.message.reply_text(msg)
+    else:
+        await update.message.reply_text("هیچ داده‌ای برای این گروه موجود نیست.")
 
-    if not rows:
-        await update.message.reply_text("هنوز کسی تو این گروه لول نگرفته 😅")
-        return
-
-    text = "🏆 لیدربرد گروه:\n\n"
-    for i, row in enumerate(rows, start=1):
-        text += f"{i}. @{row[0]} → لول {row[1]}\n"
-    await update.message.reply_text(text)
-
+# --- دستور لیدربرد جهانی ---
 async def global_leaderboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    cur.execute("SELECT username, SUM(level) as total FROM users GROUP BY username ORDER BY total DESC LIMIT 10")
+    cur.execute("SELECT user_id, SUM(xp) as total_xp, MAX(level) as max_level FROM users GROUP BY user_id ORDER BY total_xp DESC LIMIT 10")
     rows = cur.fetchall()
+    if rows:
+        msg = "🌐 لیدربرد جهانی:\n"
+        for i, row in enumerate(rows, start=1):
+            msg += f"{i}. کاربر {row[0]} - سطح {row[2]} - XP {row[1]}\n"
+        await update.message.reply_text(msg)
+    else:
+        await update.message.reply_text("هیچ داده‌ای جهانی موجود نیست.")
 
-    if not rows:
-        await update.message.reply_text("هیچ کاربری هنوز لول نداره 😅")
-        return
+# --- دستور تست XP (مثلا برای ارسال پیام) ---
+async def addxp_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    chat_id = update.effective_chat.id
+    await add_xp(user_id, chat_id, 10)
+    await update.message.reply_text("✅ شما ۱۰ XP گرفتید!")
 
-    text = "🌍 لیدربرد جهانی:\n\n"
-    for i, row in enumerate(rows, start=1):
-        text += f"{i}. @{row[0]} → لول {row[1]}\n"
-    await update.message.reply_text(text)
+# --- اجرای بات ---
+app = ApplicationBuilder().token(TOKEN).build()
+app.add_handler(CommandHandler("group_leaderboard", group_leaderboard))
+app.add_handler(CommandHandler("global_leaderboard", global_leaderboard))
+app.add_handler(CommandHandler("addxp", addxp_command))
 
-# ======= ران اصلی =======
-def main():
-    app = Application.builder().token(TOKEN).build()
-
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("leaderboard", leaderboard))
-    app.add_handler(CommandHandler("global_leaderboard", global_leaderboard))
-
-    # هندل فارسی
-    app.add_handler(MessageHandler(filters.TEXT & filters.Regex("(?i)^لیدر برد$"), leaderboard))
-    app.add_handler(MessageHandler(filters.TEXT & filters.Regex("(?i)^لیدر برد جهانی$"), global_leaderboard))
-
-    # افزایش لول با هر پیام
-    app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), increase_level))
-
-    app.run_polling()
-
-if __name__ == "__main__":
-    main()
-
+print("Bot is running...")
+app.run_polling()
